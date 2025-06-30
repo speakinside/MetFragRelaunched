@@ -2,21 +2,25 @@ package de.ipbhalle.metfragweb.controller;
 
 import java.awt.image.RenderedImage;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.Serializable;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.List;
+import java.util.Properties;
 
-import javax.annotation.PostConstruct;
-import javax.faces.application.FacesMessage;
-import javax.faces.bean.ManagedBean;
-import javax.faces.bean.SessionScoped;
-import javax.faces.context.FacesContext;
-import javax.faces.event.ActionEvent;
-import javax.faces.model.SelectItem;
+import jakarta.annotation.PostConstruct;
+import jakarta.enterprise.context.SessionScoped;
+import jakarta.faces.application.FacesMessage;
+import jakarta.faces.context.FacesContext;
+import jakarta.faces.event.ActionEvent;
+import jakarta.faces.model.SelectItem;
 import javax.imageio.ImageIO;
-import javax.servlet.ServletContext;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpSession;
+
+import jakarta.inject.Named;
+import jakarta.servlet.ServletContext;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.mail.EmailAttachment;
@@ -29,6 +33,7 @@ import org.primefaces.event.SlideEndEvent;
 import org.primefaces.event.organigram.OrganigramNodeCollapseEvent;
 import org.primefaces.event.organigram.OrganigramNodeExpandEvent;
 import org.primefaces.event.organigram.OrganigramNodeSelectEvent;
+import org.primefaces.model.DefaultStreamedContent;
 import org.primefaces.model.OrganigramNode;
 import org.primefaces.model.StreamedContent;
 import org.primefaces.model.chart.AxisType;
@@ -71,11 +76,12 @@ import de.ipbhalle.metfragweb.validator.PositiveDoubleValueValidator;
 import de.ipbhalle.metfragweb.validator.SmartsExpressionValidator;
 import de.ipbhalle.metfragweb.validator.SmartsValidator;
 
-@ManagedBean
+@Named
 @SessionScoped
-public class MetFragWebBean {
+public class MetFragWebBean implements Serializable {
 
-	private final String version = "v2.5.0";
+	private final String version;
+
 	/*
 	 * combines all the settings
 	 */
@@ -140,6 +146,21 @@ public class MetFragWebBean {
 	 */
 	public MetFragWebBean() {
 		System.out.println("MetFragWebBean");
+		this.version = loadVersion();
+	}
+
+	private String loadVersion() {
+		Properties properties = new Properties();
+		try (InputStream input = getClass().getClassLoader().getResourceAsStream("application.properties")) {
+			if (input == null) {
+				throw new IOException("Unable to find application.properties");
+			}
+			properties.load(input);
+			return properties.getProperty("version");
+		} catch (IOException ex) {
+			ex.printStackTrace();
+			return "unknown";
+		}
 	}
 
 	@PostConstruct
@@ -231,7 +252,6 @@ public class MetFragWebBean {
 		catch(Exception e) {
 			e.printStackTrace();
 			System.err.println("error generating session folders");
-			return;
 		}
 	}
 	
@@ -276,7 +296,7 @@ public class MetFragWebBean {
 	/*
 	 * database search settings
 	 */
-	public java.util.List<javax.faces.model.SelectItem> getAvailableDatabases() {
+	public java.util.List<jakarta.faces.model.SelectItem> getAvailableDatabases() {
 		return this.beanSettingsContainer.getAvailableParameters().getDatabases();
 	}
 	
@@ -338,7 +358,6 @@ public class MetFragWebBean {
 		} catch(Exception e) {
 			e.printStackTrace();
 			this.errorMessages.setMessage("inputMeasuredMassError", "Error: Error calculating mass value.");
-			return;
 		}
 	}
 	
@@ -907,7 +926,7 @@ public class MetFragWebBean {
 	}
 	
 	//SMARTS inclusion
-	public java.util.List<javax.faces.model.SelectItem> getAvailableSubstructureSmarts() {
+	public java.util.List<jakarta.faces.model.SelectItem> getAvailableSubstructureSmarts() {
 		return this.beanSettingsContainer.getAvailableParameters().getSubstructureSmarts();
 	}
 	
@@ -1069,7 +1088,7 @@ public class MetFragWebBean {
 		this.beanSettingsContainer.setSelectedInformationSmarts(selectedSmarts);
 	}
 	
-	public java.util.List<javax.faces.model.SelectItem> getAvailableSubstructureInformationSmarts() {
+	public java.util.List<jakarta.faces.model.SelectItem> getAvailableSubstructureInformationSmarts() {
 		return this.beanSettingsContainer.getAvailableParameters().getSubstructureInformationSmarts();
 	}
 	
@@ -1813,11 +1832,11 @@ public class MetFragWebBean {
 	/*
 	 * fragmenter settings
 	 */	
-	public java.util.List<javax.faces.model.SelectItem> getPrecursorModes() {
+	public java.util.List<jakarta.faces.model.SelectItem> getPrecursorModes() {
 		return this.beanSettingsContainer.getAvailableParameters().getPrecursorModes();
 	}
 
-	public java.util.List<javax.faces.model.SelectItem> getTreeDepths() {
+	public java.util.List<jakarta.faces.model.SelectItem> getTreeDepths() {
 		return this.beanSettingsContainer.getAvailableParameters().getTreeDepths();
 	}
 	
@@ -2013,7 +2032,11 @@ public class MetFragWebBean {
 		try {
 			resource = this.beanSettingsContainer.getUserOutputDataHandler().getDownloadParameters(this.errorMessages, pathToProperties);
 		} catch(Exception e) {
-			resource = new org.primefaces.model.DefaultStreamedContent(System.in, "application/zip", "MetFragWeb_Parameters.zip");
+			resource = DefaultStreamedContent.builder()
+					.stream(() -> System.in)
+					.contentType("application/zip")
+					.name("MetFragWeb_Parameters.zip")
+					.build();
 		}
 		return resource;
 	}
@@ -2661,10 +2684,14 @@ public class MetFragWebBean {
 	}
 
 	public java.util.Vector<ScoreSummary> getCandidateScore() {
-		java.util.Vector<ScoreSummary> scoreSummaries = new java.util.Vector<ScoreSummary>();
+		java.util.Vector<ScoreSummary> scoreSummaries = new java.util.Vector<>(this.currentCandidateScores == null ? 0 : this.currentCandidateScores.length);
 		if(this.currentCandidateScores == null) return scoreSummaries;
-		for(int i = 0; i < this.currentCandidateScores.length; i++)
-			if(this.currentCandidateScores[i].isUsedForScoring()) scoreSummaries.add(this.currentCandidateScores[i]);
+		for(int i = 0; i < this.currentCandidateScores.length; i++) {
+			if(this.currentCandidateScores[i].isUsedForScoring()) {
+				this.currentCandidateScores[i].setRowKey(String.valueOf(i));
+				scoreSummaries.add(this.currentCandidateScores[i]);
+			}
+		}
 		return scoreSummaries;
 	}
 	
@@ -2702,7 +2729,11 @@ public class MetFragWebBean {
 	 * @return
 	 */
 	public org.primefaces.model.StreamedContent generateCandidateDownloadFile() {
-		org.primefaces.model.StreamedContent resource = new org.primefaces.model.DefaultStreamedContent(System.in, "application/vnd.ms-excel", "MetFragWeb_Candidate.xls" );
+		org.primefaces.model.StreamedContent resource = DefaultStreamedContent.builder()
+				.stream(() -> System.in)
+				.contentType("application/vnd.ms-excel")
+				.name("MetFragWeb_Candidate.xls")
+				.build();
 		try {
 			resource = this.beanSettingsContainer.getUserOutputDataHandler().generatedCandidateDownloadFile(this.currentScoreCandidate, this.beanSettingsContainer.getMetFragSettings());
 		} catch (Exception e1) {
@@ -3005,7 +3036,7 @@ public class MetFragWebBean {
 		System.out.println("session expired " + this.beanSettingsContainer.getRootSessionFolder());
 		FacesContext fc = FacesContext.getCurrentInstance();
         java.util.Map<String, Object> requestMap = fc.getExternalContext().getRequestMap();
-        javax.faces.application.NavigationHandler nav =
+		jakarta.faces.application.NavigationHandler nav =
                 fc.getApplication().getNavigationHandler();
         // Push some useful stuff to the request scope for
         // use in the page
@@ -3148,7 +3179,7 @@ public class MetFragWebBean {
 			FileStorer fileStorer = new FileStorer();
 			try {
 				StreamedContent zipContent = this.beanSettingsContainer.getUserOutputDataHandler().getDownloadParameters(this.errorMessages, null);
-				zipFileToAttach = fileStorer.saveUploadedFile(zipContent.getStream(), feedbackFolder.getAbsoluteFile(), "MetFragWeb_Parameters.zip");
+				zipFileToAttach = fileStorer.saveUploadedFile(zipContent.getStream().get(), feedbackFolder.getAbsoluteFile(), "MetFragWeb_Parameters.zip");
 				addMsg += "Zip: yes" + ls;
 			}
 			catch(Exception e) {
@@ -3190,7 +3221,7 @@ public class MetFragWebBean {
 			if(emailSettings.containsKey(VariableNames.FEEDBACK_EMAIL_USER) && emailSettings.containsKey(VariableNames.FEEDBACK_EMAIL_PASS)) {
 				email.setAuthentication((String)emailSettings.get(VariableNames.FEEDBACK_EMAIL_USER), (String)emailSettings.get(VariableNames.FEEDBACK_EMAIL_PASS));
 			}
-			email.setStartTLSRequired(true);
+			//qemail.setStartTLSRequired(true);
 			email.addReplyTo(this.feedbackEmail);
 			email.setMsg("From: " + this.feedbackEmail + ls 
 					+ "Type: " + this.feedbackType + ls 
@@ -3222,6 +3253,7 @@ public class MetFragWebBean {
 			}
 			email.send();
 		} catch(Exception e) {
+			e.printStackTrace();
 			this.errorMessages.setMessage("feedbackSubmitButtonError", "Error: Feedback could not be sent.");
 			return;
 		}
@@ -3233,7 +3265,7 @@ public class MetFragWebBean {
 	}
 	
 	public String getServerName() {
-        String hostname = "";
+        String hostname;
         try {
                 hostname = InetAddress.getLocalHost().getHostName();
         } catch (UnknownHostException e) {

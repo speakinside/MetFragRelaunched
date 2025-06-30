@@ -13,7 +13,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.log4j.Logger;
 import org.apache.tomcat.util.http.fileupload.FileUtils;
@@ -31,8 +31,8 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.RestController;
 
-import org.springframework.hateoas.Resource;
-import static org.springframework.hateoas.mvc.ControllerLinkBuilder.linkTo;
+import org.springframework.hateoas.EntityModel;
+import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.linkTo;
 
 import de.ipbhalle.exception.CouldNotCreateProcessException;
 import de.ipbhalle.exception.CouldNotFetchResultsException;
@@ -53,27 +53,31 @@ import de.ipbhalle.model.StatusAssembler;
 
 @RestController
 @EnableAutoConfiguration
-@RequestMapping("/metfrag/api/v1")
+/**@RequestMapping("/metfrag/api/v1")**/
+/**@RequestMapping("/MetFrag-deNBI/api/v1")**/
+/**@RequestMapping("${metfragrest-controller.path}")**/
+@RequestMapping()
+
 public class MetFragRestController {
 
 	private Logger logger = Logger.getLogger(MetFragRestController.class);
 //	https://github.com/ipb-halle/MetFragRelaunched/issues/115
-//	private static final String RESULTS_FOLDER = System.getProperty("java_io_tmpdir"); 
+//	private static final String RESULTS_FOLDER = System.getProperty("java_io_tmpdir");
 	private static final String RESULTS_FOLDER = "/tmp";
 	private static final String STATUS_FILE_NAME = "status.txt";
 	private static final String HOST_FILE_NAME = "host.txt";
-	
+
 	/**
 	 * runs a metfrag query
-	 * 
+	 *
 	 * @param args
 	 * @return
 	 * @throws CouldNotWriteStatusException
 	 * @throws CouldNotCreateProcessException
 	 */
-	@RequestMapping(method = RequestMethod.POST, value = "", produces = { MediaType.APPLICATION_JSON_VALUE })
+	@RequestMapping(method = RequestMethod.POST, value = "/process", produces = { MediaType.APPLICATION_JSON_VALUE })
 	@ResponseBody
-	public ResponseEntity<Resource<ProcessAssembler>> process(@RequestBody ProcessArguments args) throws CouldNotWriteStatusException, CouldNotCreateProcessException {
+	public ResponseEntity<EntityModel<ProcessAssembler>> process(@RequestBody ProcessArguments args) throws CouldNotWriteStatusException, CouldNotCreateProcessException {
 		File resFolder;
 		String processid;
 		try {
@@ -112,46 +116,46 @@ public class MetFragRestController {
 		} catch(IOException e) {
 			throw new CouldNotWriteStatusException( e.getMessage() );
 		}
-		Resource<ProcessAssembler> resource = new ProcessAssembler("process", processid).toResource();
-		resource.add(linkTo(MetFragRestController.class).slash("process").withSelfRel());
-		resource.add(linkTo(MetFragRestController.class).slash("status").slash(processid).withRel("status"));
-		resource.add(linkTo(MetFragRestController.class).slash("host").slash(processid).withRel("host"));
-		resource.add(linkTo(MetFragRestController.class).slash("result").slash(processid).withRel("result"));
-		resource.add(linkTo(MetFragRestController.class).slash("resultzip").slash(processid).withRel("resultzip"));
-		return new ResponseEntity<Resource<ProcessAssembler>>(resource, HttpStatus.CREATED);
+		EntityModel<ProcessAssembler> entityoodel = new ProcessAssembler("process", processid).toModel();
+		entityoodel.add(linkTo(MetFragRestController.class).slash("process").withSelfRel());
+		entityoodel.add(linkTo(MetFragRestController.class).slash("status").slash(processid).withRel("status"));
+		entityoodel.add(linkTo(MetFragRestController.class).slash("host").slash(processid).withRel("host"));
+		entityoodel.add(linkTo(MetFragRestController.class).slash("result").slash(processid).withRel("result"));
+		entityoodel.add(linkTo(MetFragRestController.class).slash("resultzip").slash(processid).withRel("resultzip"));
+		return new ResponseEntity<EntityModel<ProcessAssembler>>(entityoodel, HttpStatus.CREATED);
 	}
 
 	/**
 	 * get the status of a running/finished query
-	 * 
+	 *
 	 * @param processid
 	 * @return
 	 * @throws CouldNotReadStatusException
 	 */
 	@RequestMapping(method = RequestMethod.GET, value = "/status/{processid}", produces = { MediaType.APPLICATION_JSON_VALUE })
-	public ResponseEntity<Resource<StatusAssembler>> status(@PathVariable String processid) throws CouldNotReadStatusException {
-		Resource<StatusAssembler> resource = this.readStatus(processid).toResource();
-		resource.add(linkTo(MetFragRestController.class).slash("status").slash(processid).withSelfRel());
-		return new ResponseEntity<Resource<StatusAssembler>>(resource, HttpStatus.OK);
+	public ResponseEntity<EntityModel<StatusAssembler>> status(@PathVariable String processid) throws CouldNotReadStatusException {
+		EntityModel<StatusAssembler> entityoodel = this.readStatus(processid).toModel();
+		entityoodel.add(linkTo(MetFragRestController.class).slash("status").slash(processid).withSelfRel());
+		return new ResponseEntity<EntityModel<StatusAssembler>>(entityoodel, HttpStatus.OK);
 	}
 
 	/**
 	 * get host on which the query was run
-	 * 
+	 *
 	 * @param processid
 	 * @return
 	 * @throws CouldNotReadHostException
 	 */
 	@RequestMapping(method = RequestMethod.GET, value = "/host/{processid}", produces = { MediaType.APPLICATION_JSON_VALUE })
-	public ResponseEntity<Resource<HostAssembler>> host(@PathVariable String processid) throws CouldNotReadHostException {
-		Resource<HostAssembler> resource = this.readHost(processid).toResource();
-		resource.add(linkTo(MetFragRestController.class).slash("host").slash(processid).withSelfRel());
-		return new ResponseEntity<Resource<HostAssembler>>(resource, HttpStatus.OK);
+	public ResponseEntity<EntityModel<HostAssembler>> host(@PathVariable String processid) throws CouldNotReadHostException {
+		EntityModel<HostAssembler> entityoodel = this.readHost(processid).toModel();
+		entityoodel.add(linkTo(MetFragRestController.class).slash("host").slash(processid).withSelfRel());
+		return new ResponseEntity<EntityModel<HostAssembler>>(entityoodel, HttpStatus.OK);
 	}
 
 	/**
 	 * get the result back (as CSV)
-	 * 
+	 *
 	 * @param processid
 	 * @return
 	 * @throws InterruptedException
@@ -175,7 +179,7 @@ public class MetFragRestController {
 
 	/**
 	 * get the result back (as ZIP)
-	 * 
+	 *
 	 * @param processId
 	 * @param response
 	 * @throws InterruptedException
@@ -187,7 +191,7 @@ public class MetFragRestController {
 		File resultFile = new File(this.getResultFileName(processId));
 		if (!resultFile.exists() || !resultFile.isFile() || !resultFile.canRead())
 			return;
-		FileSystemResource resource = new FileSystemResource(resultFile.getAbsolutePath()); 
+		FileSystemResource resource = new FileSystemResource(resultFile.getAbsolutePath());
 	    response.setContentType("application/zip");
 	    response.setHeader("Content-Disposition", "attachment; filename=file.zip");
 
@@ -204,12 +208,12 @@ public class MetFragRestController {
 	        zippedOut.finish();
 	    } catch (Exception e) {
 	        // Do something with Exception
-	    }        
+	    }
 	}
 
 	/**
 	 * delete the query after it was finished
-	 * 
+	 *
 	 * @param processid
 	 * @return
 	 * @throws CouldNotRemoveProcessException
@@ -224,13 +228,13 @@ public class MetFragRestController {
 		this.removeProcess(processid);
 		return new ResponseEntity<Void>(HttpStatus.OK);
 	}
-	
+
 	/*
 	 * some helper methods
 	 */
-	
+
 	/**
-	 * 
+	 *
 	 * @param processid
 	 * @throws CouldNotRemoveProcessException
 	 */
@@ -245,9 +249,9 @@ public class MetFragRestController {
 		}
 		System.out.println("Deleted " + file.getAbsolutePath());
 	}
-	
+
 	/**
-	 * 
+	 *
 	 * @return
 	 */
 	public String getServerName() {
@@ -260,9 +264,9 @@ public class MetFragRestController {
         }
         return hostname;
 	}
-	
+
 	/**
-	 * 
+	 *
 	 * @param status
 	 * @param processid
 	 * @throws IOException
@@ -280,7 +284,7 @@ public class MetFragRestController {
 	}
 
 	/**
-	 * 
+	 *
 	 * @param processid
 	 * @throws IOException
 	 */
@@ -295,9 +299,9 @@ public class MetFragRestController {
 			bwriter.close();
 		}
 	}
-	
+
 	/**
-	 * 
+	 *
 	 * @param processid
 	 * @return
 	 * @throws CouldNotReadStatusException
@@ -320,7 +324,7 @@ public class MetFragRestController {
     }
 
 	/**
-	 * 
+	 *
 	 * @param processid
 	 * @return
 	 * @throws CouldNotReadHostException
@@ -343,7 +347,7 @@ public class MetFragRestController {
     }
 
 	/**
-	 * 
+	 *
 	 * @param processid
 	 * @return
 	 */
@@ -352,17 +356,17 @@ public class MetFragRestController {
 	}
 
 	/**
-	 * 
+	 *
 	 * @param processid
 	 * @return
 	 */
 	private String getResultFolderName(String processid) {
 		return RESULTS_FOLDER + Constants.OS_SPECIFIC_FILE_SEPARATOR + processid;
 	}
-	
+
 	/**
 	 * start controller
-	 * 
+	 *
 	 * @param args
 	 * @throws Exception
 	 */
